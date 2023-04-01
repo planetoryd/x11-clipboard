@@ -162,6 +162,7 @@ impl Clipboard {
 
         let mut explicit: bool = false;
         let mut ignore_primary = false;
+        let mut ignore_all = false; 
 
         loop {
             if timeout
@@ -198,21 +199,25 @@ impl Clipboard {
                             event.timestamp,
                         )?
                         .check()?;
-                    let name = String::from_utf8(self
-                        .getter
-                        .connection
-                        .get_property(
-                            false,
-                            event.owner,
-                            AtomEnum::WM_NAME,
-                            AtomEnum::STRING,
-                            0,
-                            256,
-                        )?
-                        .reply()?.value).unwrap_or_default();
+                    let name = String::from_utf8(
+                        self.getter
+                            .connection
+                            .get_property(
+                                false,
+                                event.owner,
+                                AtomEnum::WM_NAME,
+                                AtomEnum::STRING,
+                                0,
+                                256,
+                            )?
+                            .reply()?
+                            .value,
+                    )
+                    .unwrap_or_default();
                     ignore_primary = name == "Chromium clipboard";
-                    // dbg!(&event.owner, name);
-                    // }
+                    ignore_all = name.is_empty(); // Ignore windows that have no name. They are probably some weird hacks.
+                    println!("owner {}, {}; ignore_primary, {}, ignore_all, {}", name, event.owner, ignore_primary, ignore_all);
+
                 }
                 Event::SelectionNotify(event) => {
                     if !selection.contains(&event.selection) {
@@ -224,6 +229,9 @@ impl Clipboard {
                         if ignore_primary {
                             continue;
                         }
+                    }
+                    if ignore_all {
+                        continue;
                     }
 
                     // Note that setting the property argument to None indicates that the
